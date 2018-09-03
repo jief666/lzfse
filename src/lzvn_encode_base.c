@@ -377,7 +377,14 @@ static inline void lzvn_init_table(lzvn_encoder_state *state) {
     e.values[i] = value;
   }
   for (int u = 0; u < LZVN_ENCODE_HASH_VALUES; u++)
+#ifdef __clang__
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wconditional-uninitialized"
+#endif
     state->table[u] = e; // fill entire table
+#ifdef __clang__
+#  pragma clang diagnostic pop
+#endif
 }
 
 void lzvn_encode(lzvn_encoder_state *state) {

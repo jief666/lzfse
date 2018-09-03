@@ -229,7 +229,7 @@ typedef struct {
   fse_value_decoder_entry l_decoder[LZFSE_ENCODE_L_STATES] __attribute__((__aligned__(8)));
   fse_value_decoder_entry m_decoder[LZFSE_ENCODE_M_STATES] __attribute__((__aligned__(8)));
   fse_value_decoder_entry d_decoder[LZFSE_ENCODE_D_STATES] __attribute__((__aligned__(8)));
-  int32_t literal_decoder[LZFSE_ENCODE_LITERAL_STATES];
+  fse_decoder_entry literal_decoder[LZFSE_ENCODE_LITERAL_STATES];
   //  The literal stream for the block, plus padding to allow for faster copy
   //  operations.
   uint8_t literals[LZFSE_LITERALS_PER_BLOCK + 64];
@@ -559,7 +559,7 @@ LZFSE_INLINE int lzfse_check_block_header_v1(
   tests_results = tests_results | ((res == 0) ? 0 : (1 << 13));
 
   if (tests_results) {
-    return tests_results | 0x80000000; // each 1 bit is a test that failed
+    return (int)((unsigned int)tests_results | 0x80000000); // each 1 bit is a test that failed
                                        // (except for the sign bit)
   }
 

@@ -397,7 +397,7 @@ END:
     // Revert state, DST was full
 
     // Revert the d_prev encoding
-    uint32_t d_prev = 0;
+    /*uint32_t*/ d_prev = 0;
     for (uint32_t i = 0; i < s->n_matches; i++) {
       uint32_t d = s->d_values[i];
       if (d == 0)
@@ -596,7 +596,14 @@ int lzfse_encode_init(lzfse_encoder_state *s) {
   }
   // Fill table
   for (int i = 0; i < LZFSE_ENCODE_HASH_VALUES; i++)
+#ifdef __clang__
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wconditional-uninitialized"
+#endif
     s->history_table[i] = line;
+#ifdef __clang__
+#  pragma clang diagnostic pop
+#endif
   s->pending = NO_MATCH;
   s->src_literal = 0;
 
@@ -692,7 +699,7 @@ int lzfse_encode_base(lzfse_encoder_state *s) {
       uint32_t maxLength =
         (uint32_t)(s->src_end - pos - 8); // ensure we don't hit the end of SRC
       while (length < maxLength) {
-        uint64_t d = load8(src_ref + length) ^ load8(src_pos + length);
+        /*uint64_t*/ d = load8(src_ref + length) ^ load8(src_pos + length);
         if (d == 0) {
           length += 8;
           continue;

@@ -56,7 +56,7 @@ void fse_init_encoder_table(int nstates, int nsymbols,
 // present in the data.
 int fse_init_decoder_table(int nstates, int nsymbols,
                            const uint16_t *__restrict freq,
-                           int32_t *__restrict t) {
+                           fse_decoder_entry *__restrict t) {
   assert(nsymbols <= 256);
   assert(fse_check_freq(freq, nsymbols, nstates) == 0);
   int n_clz = __builtin_clz(nstates);
@@ -78,18 +78,14 @@ int fse_init_decoder_table(int nstates, int nsymbols,
 
     // Initialize all states S reached by this symbol: OFFSET <= S < OFFSET + F
     for (int j = 0; j < f; j++) {
-      fse_decoder_entry e;
-
-      e.symbol = (uint8_t)i;
+      t->symbol = (uint8_t)i;
       if (j < j0) {
-        e.k = (int8_t)k;
-        e.delta = (int16_t)(((f + j) << k) - nstates);
+        t->k = (int8_t)k;
+        t->delta = (int16_t)(((f + j) << k) - nstates);
       } else {
-        e.k = (int8_t)(k - 1);
-        e.delta = (int16_t)((j - j0) << (k - 1));
+        t->k = (int8_t)(k - 1);
+        t->delta = (int16_t)((j - j0) << (k - 1));
       }
-
-      memcpy(t, &e, sizeof(e));
       t++;
     }
   }

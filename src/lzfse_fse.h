@@ -109,7 +109,7 @@ FSE_INLINE uint64_t fse_extract_bits64(uint64_t x, fse_bit_count start,
                                        fse_bit_count nbits) {
 #if defined(__GNUC__)
   // If START and NBITS are constants, map to bit-field extraction instructions
-  if (__builtin_constant_p(start) && __builtin_constant_p(nbits))
+  if (__builtin_constant_p(start) & __builtin_constant_p(nbits))
     return (x >> start) & ((1LLU << nbits) - 1LLU);
 #endif
 
@@ -123,7 +123,7 @@ FSE_INLINE uint32_t fse_extract_bits32(uint32_t x, fse_bit_count start,
                                        fse_bit_count nbits) {
 #if defined(__GNUC__)
   // If START and NBITS are constants, map to bit-field extraction instructions
-  if (__builtin_constant_p(start) && __builtin_constant_p(nbits))
+  if (__builtin_constant_p(start) & __builtin_constant_p(nbits))
     return (x >> start) & ((1U << nbits) - 1U);
 #endif
 
@@ -495,7 +495,7 @@ typedef struct {      // DO NOT REORDER THE FIELDS
 FSE_INLINE void fse_encode(fse_state *__restrict pstate,
                            const fse_encoder_entry *__restrict encoder_table,
                            fse_out_stream *__restrict out, uint8_t symbol) {
-  int s = *pstate;
+  uint16_t s = *pstate; // same type as fse_state
   fse_encoder_entry e = encoder_table[symbol];
   int s0 = e.s0;
   int k = e.k;
@@ -520,15 +520,21 @@ FSE_INLINE void fse_encode(fse_state *__restrict pstate,
  *  @note The caller must ensure we have enough bits available in the input
  *  stream accumulator. */
 FSE_INLINE uint8_t fse_decode(fse_state *__restrict pstate,
-                              const int32_t *__restrict decoder_table,
+                              const fse_decoder_entry *__restrict decoder_table,
                               fse_in_stream *__restrict in) {
-  int32_t e = decoder_table[*pstate];
+  fse_decoder_entry e = decoder_table[*pstate];
+  #ifdef DEBUG
+  	uint32_t e2 = ((uint32_t*)decoder_table)[*pstate];
+	assert((e2 >> 16) == e.delta);
+	assert((e2 & 0xff) == e.k);
+	assert(fse_extract_bits(e2, 8, 8) == e.symbol);
+  #endif
 
   // Update state from K bits of input + DELTA
-  *pstate = (fse_state)(e >> 16) + (fse_state)fse_in_pull(in, e & 0xff);
+  *pstate = (fse_state)e.delta + (fse_state)fse_in_pull(in, e.k);
 
   // Return the symbol for this state
-  return fse_extract_bits(e, 8, 8); // symbol
+  return e.symbol; // symbol
 }
 
 /*! @abstract Decode and return value using the decoder table, and update \c
@@ -542,10 +548,10 @@ fse_value_decode(fse_state *__restrict pstate,
                  fse_in_stream *__restrict in) {
   fse_value_decoder_entry entry = value_decoder_table[*pstate];
   uint32_t state_and_value_bits = (uint32_t)fse_in_pull(in, entry.total_bits);
-  *pstate =
-      (fse_state)(entry.delta + (state_and_value_bits >> entry.value_bits));
-  return (int32_t)(entry.vbase +
-                   fse_mask_lsb(state_and_value_bits, entry.value_bits));
+  assert(entry.delta>=0); // for safe casting to uint16_t
+  *pstate = (fse_state)(((uint16_t)(entry.delta)) + (state_and_value_bits >> entry.value_bits));
+  assert(entry.vbase>=0); // for safe casting to uint32_t
+  return (int32_t)(((uint32_t)(entry.vbase)) + fse_mask_lsb(state_and_value_bits, entry.value_bits));
 }
 
 // MARK: - Tables
@@ -561,7 +567,7 @@ FSE_INLINE int fse_check_freq(const uint16_t *freq_table,
                               const size_t table_size,
                               const size_t number_of_states) {
   size_t sum_of_freq = 0;
-  for (int i = 0; i < table_size; i++) {
+  for (size_t i = 0; i < table_size; i++) {
     sum_of_freq += freq_table[i];
   }
   return (sum_of_freq > number_of_states) ? -1 : 0;
@@ -602,7 +608,7 @@ void fse_init_encoder_table(int nstates, int nsymbols,
  */
 int fse_init_decoder_table(int nstates, int nsymbols,
                            const uint16_t *__restrict freq,
-                           int32_t *__restrict t);
+                           fse_decoder_entry *__restrict t);
 
 /*! @abstract Initialize value decoder table \c t[nstates].
  *
